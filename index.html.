@@ -1,0 +1,52 @@
+name: Publicar Bateu Meta
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar arquivos do repositorio
+        uses: actions/checkout@v4
+
+      - name: Extrair site e corrigir caminhos
+        run: |
+          mkdir -p public
+          unzip -q bateumeta-github-pages-Bateumeta.zip -d public
+          python3 - <<'PY'
+          from pathlib import Path
+          for file in Path('public').rglob('*'):
+              if file.is_file() and file.suffix.lower() in {'.html', '.js', '.css', '.json', '.webmanifest', '.svg', '.xml', '.txt'}:
+                  data = file.read_bytes()
+                  updated = data.replace(b'/Bateumeta/', b'/bateumetabr/')
+                  if updated != data:
+                      file.write_bytes(updated)
+          PY
+          test -f public/index.html
+
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Enviar arquivos do site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Publicar site
+        id: deployment
+        uses: actions/deploy-pages@v4
